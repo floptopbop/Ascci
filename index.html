@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>DITHER CAM // CHROMA CRUSH</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; /* avoid selection glitches */
+}
+
+html, body {
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #0d0c08;
+  color: #d6c8a8;
+  font-family: 'Share Tech Mono', monospace;
+  overscroll-behavior: none;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* canvas container + output canvas */
+#canvas-wrap {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  position: relative;
+}
+
+#output {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: pixelated;         /* legacy */
+}
+
+/* SCANLINE OVERLAY — fixed visibility & punch */
+#scanline-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  background: repeating-linear-gradient(0deg, 
+    transparent, transparent 3px, 
+    rgba(0, 0, 0, 0.38) 3px, 
+    rgba(0, 0, 0, 0.38) 4px
+  );
+  mix-blend-mode: overlay;
+}
+#scanline-overlay.on {
+  display: block;
+}
+
+/* START SCREEN */
+#start-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0d0c08;
+  gap: 18px;
+  backdrop-filter: blur(2px);
+}
+#start-screen p {
+  font-size: 11px;
+  color: #5a5240;
+  letter-spacing: 0.2em;
+  text-align: center;
+  line-height: 2;
+}
+#start-btn {
+  border: 1.5px solid #e05a2e;
+  background: transparent;
+  color: #e05a2e;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  padding: 12px 32px;
+  cursor: pointer;
+  transition: 0.1s linear;
+}
+#start-btn:active {
+  background: #e05a2e;
+  color: #0d0c08;
+}
+
+/* FPS COUNTER */
+#fps {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 10px;
+  color: #5a5542;
+  letter-spacing: 0.1em;
+  z-index: 12;
+  pointer-events: none;
+  background: rgba(0,0,0,0.4);
+  padding: 2px 8px;
+  border-radius: 20px;
+  backdrop-filter: blur(2px);
+}
+
+/* ===== BOTTOM SHEET (upgraded) ===== */
+#bottom-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 25;
+  transform: translateY(calc(100% - 48px - env(safe-area-inset-bottom, 0px)));
+  transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+#bottom-sheet.open {
+  transform: translateY(0);
+}
+
+/* pull tab — bigger hit area */
+#pull-tab {
+  width: 80px;
+  height: 28px;
+  margin: 0 auto;
+  background: #17150e;
+  border: 1px solid #2e2a1e;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: #6a6248;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+  transition: 0.1s;
+}
+#pull-tab:active {
+  background: #2c281c;
+  color: #e0c888;
+}
+
+/* main controls panel — refined grid */
+#controls {
+  background: rgba(12, 11, 8, 0.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid #2e2a1e;
+  padding: 18px 20px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+}
+
+.param {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.param-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.param-label {
+  font-size: 9px;
+  color: #8a8268;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.param-val {
+  font-size: 11px;
+  color: #efdfb0;
+  font-weight: bold;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px;
+  background: #2c281c;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #efcf90;
+  border: none;
+  cursor: pointer;
+  transition: 0.05s linear;
+}
+input[type=range]:active::-webkit-slider-thumb {
+  background: #ffa86e;
+  transform: scale(1.2);
+}
+
+select {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  background: #1e1b12;
+  color: #efdfb0;
+  border: 1px solid #3a3524;
+  padding: 7px 6px;
+  border-radius: 4px;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+/* button row — extra reset button */
+#btn-row {
+  display: flex;
+  background: rgba(12, 11, 8, 0.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid #262219;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  flex-wrap: wrap;
+}
+.btn {
+  flex: 1 1 0;
+  min-width: 65px;
+  border: none;
+  border-right: 1px solid #262219;
+  background: transparent;
+  color: #7a7258;
+  padding: 12px 0;
+  font-size: 10px;
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: 0.05s linear;
+}
+.btn:last-child {
+  border-right: none;
+}
+.btn:active {
+  background: #252116;
+  color: #ffefb0;
+}
+.btn.green { color: #6fa86f; }
+.btn.red   { color: #e05a2e; }
+.btn.lit   { color: #ffe6a3; text-shadow: 0 0 2px #cc8844; }
+.btn.orange { color: #e0a050; }
+
+/* misc hidden */
+#vraw, #proc {
+  display: none;
+  position: absolute;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-wrap">
+    <canvas id="output"></canvas>
+    <div id="scanline-overlay"></div>
+  </div>
+
+  <div id="start-screen">
+    <p>◢ BAYER 8x8 ORDERED DITHER ◣<br>LIVE CAM + HUE SHIFT</p>
+    <button id="start-btn">▶ INIT CAMERA</button>
+  </div>
+
+  <span id="fps">– fps</span>
+
+  <!-- BOTTOM SLIDE PANEL -->
+  <div id="bottom-sheet">
+    <div id="pull-tab">▴ UI</div>
+
+    <div id="controls">
+      <div class="param">
+        <div class="param-header"><span class="param-label">pixel size</span><span class="param-val" id="v-px">4</span></div>
+        <input type="range" id="s-px" min="1" max="16" step="1" value="4">
+      </div>
+      <div class="param">
+        <div class="param-header"><span class="param-label">dither spread</span><span class="param-val" id="v-spread">50</span></div>
+        <input type="range" id="s-spread" min="0" max="130" step="5" value="50">
+      </div>
+      <div class="param">
+        <div class="param-header"><span class="param-label">color bands</span><span class="param-val" id="v-bands">4</span></div>
+        <input type="range" id="s-bands" min="2" max="16" step="1" value="4">
+      </div>
+      <div class="param">
+        <div class="param-header"><span class="param-label">contrast</span><span class="param-val" id="v-contrast">1.0</span></div>
+        <input type="range" id="s-contrast" min="0.5" max="3.0" step="0.1" value="1.0">
+      </div>
+      <div class="param">
+        <div class="param-header"><span class="param-label">scan gap</span><span class="param-val" id="v-sgap">4</span></div>
+        <input type="range" id="s-sgap" min="2" max="14" step="1" value="4">
+      </div>
+      <div class="param">
+        <div class="param-header"><span class="param-label">mirror</span></div>
+        <select id="s-mirror">
+          <option value="none">none</option>
+          <option value="h" selected>horizontal</option>
+          <option value="v">vertical</option>
+        </select>
+      </div>
+      <!-- NEW HUE SHIFT SLIDER — big creative control -->
+      <div class="param" style="grid-column: span 2">
+        <div class="param-header"><span class="param-label">🗑️🔥 HUE SHIFT</span><span class="param-val" id="v-hue">0</span></div>
+        <input type="range" id="s-hue" min="0" max="360" step="1" value="0">
+      </div>
+      <div class="param" style="grid-column: span 2">
+        <div class="param-header"><span class="param-label">palette mode</span></div>
+        <select id="s-mode">
+          <option value="bw">black & white</option>
+          <option value="color" selected>color dither</option>
+          <option value="gameboy">gameboy green</option>
+          <option value="amber">amber phosphor</option>
+          <option value="blueprint">blueprint</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="btn-row">
+      <button class="btn green" id="boot-btn">BOOT</button>
+      <button class="btn" id="flip-btn">FLIP</button>
+      <button class="btn" id="scan-btn">SCAN</button>
+      <button class="btn orange" id="reset-btn">RESET</button>
+      <button class="btn red" id="save-btn">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<video id="vraw" autoplay playsinline muted></video>
+<canvas id="proc"></canvas>
+
+<script>
+  // ---------- DOM elements ----------
+  const outputCanvas = document.getElementById('output');
+  const oCtx = outputCanvas.getContext('2d');
+  const video = document.getElementById('vraw');
+  const procCanvas = document.getElementById('proc');
+  const pCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+  
+  // UI elements
+  const startScreen = document.getElementById('start-screen');
+  const startBtn = document.getElementById('start-btn');
+  const bottomSheet = document.getElementById('bottom-sheet');
+  const pullTab = document.getElementById('pull-tab');
+  const scanOverlay = document.getElementById('scanline-overlay');
+  const scanBtn = document.getElementById('scan-btn');
+  const fpsSpan = document.getElementById('fps');
+  
+  // sliders & values
+  const sPx = document.getElementById('s-px');
+  const sSpread = document.getElementById('s-spread');
+  const sBands = document.getElementById('s-bands');
+  const sContrast = document.getElementById('s-contrast');
+  const sSGap = document.getElementById('s-sgap');
+  const sMirror = document.getElementById('s-mirror');
+  const sMode = document.getElementById('s-mode');
+  const sHue = document.getElementById('s-hue');      // NEW
+  const vPx = document.getElementById('v-px');
+  const vSpread = document.getElementById('v-spread');
+  const vBands = document.getElementById('v-bands');
+  const vContrast = document.getElementById('v-contrast');
+  const vSGap = document.getElementById('v-sgap');
+  const vHue = document.getElementById('v-hue');
+  
+  // ------ BAYER 8x8 matrix (normalized 0..1) ------
+  const BAYER_MATRIX = [
+    [0,32,8,40,2,34,10,42], [48,16,56,24,50,18,58,26],
+    [12,44,4,36,14,46,6,38], [60,28,52,20,62,30,54,22],
+    [3,35,11,43,1,33,9,41], [51,19,59,27,49,17,57,25],
+    [15,47,7,39,13,45,5,37], [63,31,55,23,61,29,53,21]
+  ].map(row => row.map(v => v / 64));
+  
+  // color palettes
+  const MODES = {
+    bw: [[15,12,10], [240,235,220]],
+    gameboy: [[15,56,15], [48,98,48], [139,172,15], [155,188,15]],
+    amber: [[20,10,0], [80,40,0], [180,100,0], [255,176,0]],
+    blueprint: [[10,20,60], [30,60,140], [80,130,210], [200,220,255]]
+  };
+  
+  // global state
+  let activeStream = null;
+  let facing = 'environment';
+  let animationRunning = false;
+  let scanlinesActive = false;
+  let frameCount = 0;
+  let lastFpsTime = 0;
+  
+  // ---- helper: update displayed values ----
+  function updateUI() {
+    vPx.textContent = sPx.value;
+    vSpread.textContent = sSpread.value;
+    vBands.textContent = sBands.value;
+    vContrast.textContent = parseFloat(sContrast.value).toFixed(1);
+    vSGap.textContent = sSGap.value;
+    vHue.textContent = sHue.value;
+  }
+  
+  // ---- SCANLINE ENGINE (fixed: always prepped, strong visibility) ----
+  function applyScanlineStyle() {
+    const gap = parseInt(sSGap.value, 10);
+    const alpha = 0.44; // deeper feel, real scanlines
+    scanOverlay.style.background = `repeating-linear-gradient(0deg, 
+      transparent, transparent ${gap-1}px, 
+      rgba(0, 0, 0, ${alpha}) ${gap-1}px, 
+      rgba(0, 0, 0, ${alpha}) ${gap}px)`;
+    scanOverlay.style.mixBlendMode = 'multiply'; // blends more dramatically
+  }
+  
+  function toggleScanlines() {
+    scanlinesActive = !scanlinesActive;
+    if (scanlinesActive) {
+      scanOverlay.classList.add('on');
+      scanBtn.classList.add('lit');
+      scanBtn.textContent = 'SCAN ▪';
+      applyScanlineStyle();   // ensure gradient is fresh
+    } else {
+      scanOverlay.classList.remove('on');
+      scanBtn.classList.remove('lit');
+      scanBtn.textContent = 'SCAN';
+    }
+  }
+  
+  // ---- HUE SHIFT (RGB -> HSL shift -> RGB) efficient ----
+  function hueShiftRGB(r, g, b, shiftDeg) {
+    if (shiftDeg === 0) return { r, g, b };
+    let rNorm = r / 255, gNorm = g / 255, bNorm = b / 255;
+    const max = Math.max(rNorm, gNorm, bNorm);
+    const min = Math.min(rNorm, gNorm, bNorm);
+    let h, s, l = (max + min) / 2;
+    
+    if (max === min) {
+      h = 0;
+      s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+        case gNorm: h = (bNorm - rNorm) / d + 2; break;
+        default: h = (rNorm - gNorm) / d + 4; break;
+      }
+      h /= 6;
+    }
+    // apply shift
+    let newHue = (h * 360 + shiftDeg) % 360;
+    if (newHue < 0) newHue += 360;
+    newHue /= 360;
+    
+    // HSL to RGB
+    let r2, g2, b2;
+    if (s === 0) {
+      r2 = g2 = b2 = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r2 = hue2rgb(p, q, newHue + 1/3);
+      g2 = hue2rgb(p, q, newHue);
+      b2 = hue2rgb(p, q, newHue - 1/3);
+    }
+    return { r: Math.min(255, Math.max(0, Math.round(r2 * 255))),
+             g: Math.min(255, Math.max(0, Math.round(g2 * 255))),
+             b: Math.min(255, Math.max(0, Math.round(b2 * 255))) };
+  }
+  
+  // quantization for color banding mode (ordered dither per channel)
+  function quantChannel(val, bands, offset) {
+    const step = 255 / (bands - 1);
+    let adjusted = val + offset;
+    adjusted = Math.min(255, Math.max(0, adjusted));
+    const stepped = Math.round(adjusted / step) * step;
+    return Math.min(255, Math.max(0, stepped));
+  }
+  
+  // ---- MAIN DITHER LOOP (improved performance & hue shift) ----
+  function drawFrame() {
+    if (!animationRunning) return;
+    if (video.readyState < 2) {
+      requestAnimationFrame(() => drawFrame());
+      return;
+    }
+    
+    // read all control values
+    const px = Math.max(1, Math.round(parseFloat(sPx.value)));
+    const spread = parseFloat(sSpread.value);
+    const bands = Math.max(2, Math.round(parseFloat(sBands.value)));
+    const contrast = parseFloat(sContrast.value);
+    const mirrorMode = sMirror.value;
+    const colorMode = sMode.value;
+    const hueShiftDeg = parseFloat(sHue.value);
+    const usePalette = MODES[colorMode] || null;
+    
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (vw === 0 || vh === 0) return;
+    
+    // downsampled dimensions (pixelated block size)
+    const sw = Math.max(1, Math.floor(vw / px));
+    const sh = Math.max(1, Math.floor(vh / px));
+    procCanvas.width = sw;
+    procCanvas.height = sh;
+    
+    // draw with mirror
+    pCtx.save();
+    if (mirrorMode === 'h') { pCtx.translate(sw, 0); pCtx.scale(-1, 1); }
+    if (mirrorMode === 'v') { pCtx.translate(0, sh); pCtx.scale(1, -1); }
+    pCtx.drawImage(video, 0, 0, sw, sh);
+    pCtx.restore();
+    
+    const srcData = pCtx.getImageData(0, 0, sw, sh).data;
+    const outWidth = sw * px;
+    const outHeight = sh * px;
+    outputCanvas.width = outWidth;
+    outputCanvas.height = outHeight;
+    const imgData = oCtx.createImageData(outWidth, outHeight);
+    const dst = imgData.data;
+    
+    // contrast formula (standard)
+    let contrastFactor = 1.0;
+    if (contrast !== 1.0) {
+      contrastFactor = (259 * ((contrast - 1) * 255 + 255)) / (255 * (259 - (contrast - 1) * 255));
+    }
+    
+    // iterate over low-res blocks
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const idx = (y * sw + x) * 4;
+        let r = srcData[idx];
+        let g = srcData[idx+1];
+        let b = srcData[idx+2];
+        
+        // apply contrast
+        if (contrast !== 1.0) {
+          r = Math.min(255, Math.max(0, contrastFactor * (r - 128) + 128));
+          g = Math.min(255, Math.max(0, contrastFactor * (g - 128) + 128));
+          b = Math.min(255, Math.max(0, contrastFactor * (b - 128) + 128));
+        }
+        
+        // 🗑️🔥 HUE SHIFT (creative core)
+        const shifted = hueShiftRGB(r, g, b, hueShiftDeg);
+        r = shifted.r; g = shifted.g; b = shifted.b;
+        
+        // Bayer dither offset (per pixel, based on low-res x,y)
+        const bayerVal = BAYER_MATRIX[y % 8][x % 8];
+        const offset = (bayerVal - 0.5) * spread;
+        
+        let finalR, finalG, finalB;
+        
+        if (usePalette) {
+          // palette mode uses luminance + offset
+          let lum = 0.299 * r + 0.587 * g + 0.114 * b + offset;
+          lum = Math.min(255, Math.max(0, lum));
+          const paletteIdx = Math.min(usePalette.length-1, Math.floor(lum / 256 * usePalette.length));
+          finalR = usePalette[paletteIdx][0];
+          finalG = usePalette[paletteIdx][1];
+          finalB = usePalette[paletteIdx][2];
+        } else if (colorMode === 'color') {
+          // color ordered dither : each channel independently
+          finalR = quantChannel(r, bands, offset);
+          finalG = quantChannel(g, bands, offset);
+          finalB = quantChannel(b, bands, offset);
+        } else {
+          // fallback bw dither (if needed)
+          let lum = 0.299 * r + 0.587 * g + 0.114 * b + offset;
+          lum = Math.min(255, Math.max(0, lum));
+          const mono = lum > 127 ? 255 : 0;
+          finalR = finalG = finalB = mono;
+        }
+        
+        // upscale pixel blocks
+        const baseX = x * px;
+        const baseY = y * px;
+        for (let dy = 0; dy < px; dy++) {
+          for (let dx = 0; dx < px; dx++) {
+            const di = ((baseY + dy) * outWidth + (baseX + dx)) * 4;
+            dst[di] = finalR;
+            dst[di+1] = finalG;
+            dst[di+2] = finalB;
+            dst[di+3] = 255;
+          }
+        }
+      }
+    }
+    
+    oCtx.putImageData(imgData, 0, 0);
+  }
+  
+  // ---- animation loop with FPS ----
+  let animFrameId = null;
+  function renderLoop(timestamp) {
+    if (!animationRunning) return;
+    drawFrame();
+    frameCount++;
+    if (timestamp - lastFpsTime >= 1000) {
+      fpsSpan.textContent = frameCount + ' fps';
+      frameCount = 0;
+      lastFpsTime = timestamp;
+    }
+    animFrameId = requestAnimationFrame(renderLoop);
+  }
+  
+  // ---- CAMERA INIT (with error fallback) ----
+  async function initCamera() {
+    if (activeStream) {
+      activeStream.getTracks().forEach(track => track.stop());
+    }
+    try {
+      const constraints = {
+        video: { facingMode: { exact: facing }, width: { ideal: 640 }, height: { ideal: 480 } }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      activeStream = stream;
+      video.srcObject = stream;
+      await video.play();
+      startScreen.style.display = 'none';
+      animationRunning = true;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      frameCount = 0;
+      lastFpsTime = performance.now();
+      animFrameId = requestAnimationFrame(renderLoop);
+    } catch (err) {
+      // fallback: try without exact facingMode
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing } });
+        activeStream = fallbackStream;
+        video.srcObject = fallbackStream;
+        await video.play();
+        startScreen.style.display = 'none';
+        animationRunning = true;
+        animFrameId = requestAnimationFrame(renderLoop);
+      } catch (err2) {
+        startScreen.style.display = 'flex';
+        const errMsg = document.querySelector('#start-screen p');
+        errMsg.innerHTML = `⚠️ CAMERA ERROR<br>${err2.message.substring(0, 60)}`;
+      }
+    }
+  }
+  
+  function flipCamera() {
+    facing = (facing === 'environment') ? 'user' : 'environment';
+    initCamera();
+  }
+  
+  function saveSnapshot() {
+    if (!outputCanvas.width) return;
+    const link = document.createElement('a');
+    link.download = `dither_${Date.now()}.png`;
+    link.href = outputCanvas.toDataURL('image/png');
+    link.click();
+  }
+  
+  // ---- RESET DEFAULTS (restores all params, keeps camera) ----
+  function resetDefaults() {
+    sPx.value = '4';
+    sSpread.value = '50';
+    sBands.value = '4';
+    sContrast.value = '1.0';
+    sSGap.value = '4';
+    sHue.value = '0';
+    sMirror.value = 'h';
+    sMode.value = 'color';
+    updateUI();
+    // refresh scanline style if active
+    if (scanlinesActive) applyScanlineStyle();
+    // also force mirror select update
+    const evt = new Event('change');
+    sMirror.dispatchEvent(evt);
+  }
+  
+  // ---- event listeners binding ----
+  function bindControls() {
+    sPx.addEventListener('input', () => updateUI());
+    sSpread.addEventListener('input', () => updateUI());
+    sBands.addEventListener('input', () => updateUI());
+    sContrast.addEventListener('input', () => updateUI());
+    sSGap.addEventListener('input', () => { updateUI(); if (scanlinesActive) applyScanlineStyle(); });
+    sHue.addEventListener('input', () => updateUI());
+    document.querySelectorAll('#controls input, #controls select').forEach(el => {
+      el.addEventListener('change', () => { /* just to refresh UI on change */ });
+    });
+  }
+  
+  // panel toggle
+  function togglePanel() {
+    bottomSheet.classList.toggle('open');
+    pullTab.textContent = bottomSheet.classList.contains('open') ? '▾ UI' : '▴ UI';
+  }
+  
+  // ---- initialization ----
+  function setupUI() {
+    startBtn.onclick = () => initCamera();
+    document.getElementById('boot-btn').onclick = () => initCamera();
+    document.getElementById('flip-btn').onclick = () => flipCamera();
+    document.getElementById('scan-btn').onclick = () => toggleScanlines();
+    document.getElementById('reset-btn').onclick = () => resetDefaults();
+    document.getElementById('save-btn').onclick = () => saveSnapshot();
+    pullTab.onclick = () => togglePanel();
+    
+    bindControls();
+    updateUI();
+    // default scanline style (prep)
+    applyScanlineStyle();
+    scanOverlay.classList.remove('on');
+    scanlinesActive = false;
+    scanBtn.textContent = 'SCAN';
+  }
+  
+  // handle resize & orientation (reflow)
+  window.addEventListener('resize', () => {});
+  setupUI();
+  
+  // optional: prefill default values
+  resetDefaults();
+</script>
+</body>
+</html>

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>QUADTREE GLYPH</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>QUADTREE · GLYPH</title>
 <style>
 @font-face {
   font-family: 'IBM VGA';
@@ -12,23 +13,25 @@
   font-style: normal;
 }
 
-*, *::before, *::after {
-box-sizing: border-box;
-margin: 0;
-padding: 0;
--webkit-tap-highlight-color: transparent;
-}
+- {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  }
 
 html, body {
 width: 100%;
 height: 100dvh;
-background: #000;
 overflow: hidden;
+background: #0d0c08;
+color: #d6c8a8;
+font-family: ‘Share Tech Mono’, monospace;
 overscroll-behavior: none;
-font-family: ‘IBM VGA’, ‘Courier New’, monospace;
 }
 
-/* ── FULL-BLEED CANVAS ── */
+/* ── CANVAS ── */
 #outputCanvas {
 display: block;
 position: fixed;
@@ -44,89 +47,118 @@ z-index: 0;
 display: none;
 }
 
-/* ── OVERLAY HUD ── */
-#hud {
+/* ── START SCREEN ── */
+#start-screen {
+position: fixed;
+inset: 0;
+z-index: 30;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+background: #0d0c08;
+gap: 18px;
+backdrop-filter: blur(2px);
+}
+#start-screen p {
+font-size: 11px;
+color: #5a5240;
+letter-spacing: 0.2em;
+text-align: center;
+line-height: 2;
+}
+#start-btn {
+border: 1.5px solid #e05a2e;
+background: transparent;
+color: #e05a2e;
+font-family: ‘Share Tech Mono’, monospace;
+font-size: 12px;
+letter-spacing: 0.2em;
+padding: 12px 32px;
+cursor: pointer;
+transition: 0.1s linear;
+}
+#start-btn:active {
+background: #e05a2e;
+color: #0d0c08;
+}
+
+/* ── TITLE TAG ── */
+#title-tag {
+position: fixed;
+top: env(safe-area-inset-top, 14px);
+left: 16px;
+font-size: 10px;
+letter-spacing: 0.2em;
+color: #5a5240;
+text-transform: uppercase;
+z-index: 12;
+pointer-events: none;
+}
+
+/* ── FPS ── */
+#fps {
+position: fixed;
+top: 12px;
+right: 16px;
+font-size: 10px;
+color: #5a5542;
+letter-spacing: 0.1em;
+z-index: 12;
+pointer-events: none;
+background: rgba(0,0,0,0.4);
+padding: 2px 8px;
+border-radius: 20px;
+backdrop-filter: blur(2px);
+}
+
+/* ── BOTTOM SHEET ── */
+#bottom-sheet {
 position: fixed;
 bottom: 0;
 left: 0;
-right: 0;
-z-index: 10;
-padding: 0 16px env(safe-area-inset-bottom, 16px);
-padding-bottom: max(env(safe-area-inset-bottom), 16px);
-background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+width: 100%;
+z-index: 25;
+transform: translateY(calc(100% - 48px - env(safe-area-inset-bottom, 0px)));
+transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+#bottom-sheet.open {
+transform: translateY(0);
 }
 
-#hud-inner {
-max-width: 480px;
+#pull-tab {
+width: 80px;
+height: 28px;
 margin: 0 auto;
-padding: 14px 0 8px;
-display: flex;
-flex-direction: column;
-gap: 10px;
-}
-
-/* top row: status + flip */
-.hud-row {
+background: #17150e;
+border: 1px solid #2e2a1e;
+border-bottom: none;
+border-radius: 12px 12px 0 0;
 display: flex;
 align-items: center;
-justify-content: space-between;
-gap: 12px;
-}
-
-.status-pill {
-display: flex;
-align-items: center;
-gap: 7px;
-font-size: 11px;
-letter-spacing: 0.12em;
-color: rgba(255,255,255,0.55);
-text-transform: uppercase;
-}
-
-.live-dot {
-width: 7px;
-height: 7px;
-border-radius: 50%;
-background: #4dff91;
-box-shadow: 0 0 6px #4dff91;
-animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-0%, 100% { opacity: 1; }
-50% { opacity: 0.4; }
-}
-
-#fps {
-color: rgba(255,255,255,0.35);
+justify-content: center;
 font-size: 10px;
-letter-spacing: 0.08em;
-}
-
-#flipCamBtn {
-background: rgba(255,255,255,0.08);
-border: 1px solid rgba(255,255,255,0.15);
-border-radius: 20px;
-color: rgba(255,255,255,0.7);
-font-family: inherit;
-font-size: 11px;
-letter-spacing: 0.1em;
-padding: 6px 14px;
+font-weight: bold;
+color: #6a6248;
+letter-spacing: 0.2em;
 cursor: pointer;
-transition: background 0.15s, color 0.15s;
-text-transform: uppercase;
+backdrop-filter: blur(2px);
+transition: 0.1s;
+}
+#pull-tab:active {
+background: #2c281c;
+color: #e0c888;
 }
 
-#flipCamBtn:active {
-background: rgba(255,255,255,0.18);
-color: #fff;
-}
-
-/* sliders grid */
-.sliders {
+/* ── CONTROLS GRID ── */
+#controls {
+background: rgba(12, 11, 8, 0.96);
+backdrop-filter: blur(8px);
+border-top: 1px solid #2e2a1e;
+padding: 18px 20px 12px;
 display: grid;
 grid-template-columns: 1fr 1fr;
-gap: 10px 20px;
+gap: 16px 24px;
 }
 
 .param {
@@ -134,121 +166,89 @@ display: flex;
 flex-direction: column;
 gap: 5px;
 }
-
-.param-label {
+.param-header {
 display: flex;
 justify-content: space-between;
 align-items: baseline;
+}
+.param-label {
 font-size: 9px;
-letter-spacing: 0.14em;
-color: rgba(255,255,255,0.38);
+color: #8a8268;
+letter-spacing: 0.12em;
 text-transform: uppercase;
+font-weight: 500;
+}
+.param-val {
+font-size: 11px;
+color: #efdfb0;
+font-weight: bold;
 }
 
-.param-label span {
-color: rgba(255,255,255,0.7);
-font-size: 10px;
-}
-
-input[type=“range”] {
+input[type=range] {
 -webkit-appearance: none;
 width: 100%;
 height: 2px;
-background: rgba(255,255,255,0.15);
-border-radius: 1px;
+background: #2c281c;
+border-radius: 2px;
 outline: none;
 cursor: pointer;
 }
-
-input[type=“range”]::-webkit-slider-thumb {
+input[type=range]::-webkit-slider-thumb {
 -webkit-appearance: none;
-width: 14px;
-height: 14px;
+width: 16px;
+height: 16px;
 border-radius: 50%;
-background: #fff;
-box-shadow: 0 0 8px rgba(255,255,255,0.5);
-cursor: pointer;
-}
-
-input[type=“range”]::-moz-range-thumb {
-width: 14px;
-height: 14px;
-border-radius: 50%;
-background: #fff;
+background: #efcf90;
 border: none;
-box-shadow: 0 0 8px rgba(255,255,255,0.5);
 cursor: pointer;
+transition: 0.05s linear;
 }
-
-/* colorize toggle */
-.toggle-row {
-display: flex;
-align-items: center;
-justify-content: space-between;
+input[type=range]:active::-webkit-slider-thumb {
+background: #ffa86e;
+transform: scale(1.2);
 }
-
-.toggle-label {
-font-size: 9px;
-letter-spacing: 0.14em;
-color: rgba(255,255,255,0.38);
-text-transform: uppercase;
-}
-
-.toggle-switch {
-position: relative;
-width: 36px;
-height: 20px;
-}
-
-.toggle-switch input {
-opacity: 0;
-width: 0;
-height: 0;
-}
-
-.toggle-track {
-position: absolute;
-inset: 0;
-border-radius: 10px;
-background: rgba(255,255,255,0.12);
-border: 1px solid rgba(255,255,255,0.15);
-transition: background 0.2s;
-cursor: pointer;
-}
-
-.toggle-thumb {
-position: absolute;
-top: 3px;
-left: 3px;
-width: 12px;
-height: 12px;
+input[type=range]::-moz-range-thumb {
+width: 16px;
+height: 16px;
 border-radius: 50%;
-background: rgba(255,255,255,0.4);
-transition: transform 0.2s, background 0.2s;
+background: #efcf90;
+border: none;
+cursor: pointer;
 }
 
-.toggle-switch input:checked + .toggle-track {
-background: rgba(77, 255, 145, 0.25);
-border-color: #4dff91;
+/* ── BUTTON ROW ── */
+#btn-row {
+display: flex;
+background: rgba(12, 11, 8, 0.96);
+backdrop-filter: blur(8px);
+border-top: 1px solid #262219;
+padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
-
-.toggle-switch input:checked + .toggle-track .toggle-thumb {
-transform: translateX(16px);
-background: #4dff91;
-}
-
-/* top left title */
-#title-tag {
-position: fixed;
-top: env(safe-area-inset-top, 14px);
-left: 16px;
+.btn {
+flex: 1 1 0;
+min-width: 60px;
+border: none;
+border-right: 1px solid #262219;
+background: transparent;
+color: #7a7258;
+padding: 12px 0;
 font-size: 10px;
-letter-spacing: 0.2em;
-color: rgba(255,255,255,0.2);
+font-family: ‘Share Tech Mono’, monospace;
+font-weight: 500;
+letter-spacing: 0.15em;
 text-transform: uppercase;
-z-index: 10;
-user-select: none;
+cursor: pointer;
+transition: 0.05s linear;
 }
+.btn:last-child { border-right: none; }
+.btn:active {
+background: #252116;
+color: #ffefb0;
+}
+.btn.green  { color: #6fa86f; }
+.btn.red    { color: #e05a2e; }
+.btn.lit    { color: #ffe6a3; text-shadow: 0 0 2px #cc8844; }
+.btn.orange { color: #e0a050; }
 </style>
 
 </head>
@@ -258,44 +258,49 @@ user-select: none;
 <canvas id="videoCanvas"></canvas>
 
 <div id="title-tag">QUADTREE · GLYPH</div>
+<span id="fps">– fps</span>
 
-<div id="hud">
-  <div id="hud-inner">
-    <div class="hud-row">
-      <div class="status-pill">
-        <div class="live-dot"></div>
-        <span>LIVE</span>
-        <span id="fps">– fps</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div class="toggle-row" style="gap:10px;">
-          <span class="toggle-label">COLOR</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="colorize" checked>
-            <div class="toggle-track"><div class="toggle-thumb"></div></div>
-          </label>
-        </div>
-        <button id="flipCamBtn">↺ FLIP</button>
-      </div>
-    </div>
+<!-- START SCREEN -->
 
-```
-<div class="sliders">
-  <div class="param">
-    <div class="param-label">THRESHOLD <span id="threshVal">28</span></div>
-    <input type="range" id="threshold" min="5" max="80" step="1" value="28">
-  </div>
-  <div class="param">
-    <div class="param-label">MAX BLOCK <span id="maxBlockVal">64</span></div>
-    <input type="range" id="maxBlock" min="32" max="96" step="8" value="64">
-  </div>
-  <div class="param">
-    <div class="param-label">MIN BLOCK <span id="minBlockVal">8</span></div>
-    <input type="range" id="minBlock" min="4" max="32" step="2" value="8">
-  </div>
+<div id="start-screen">
+  <p>◢ QUADTREE GLYPH ENGINE ◣<br>LIVE CAM + ASCII RENDER</p>
+  <button id="start-btn">▶ INIT CAMERA</button>
 </div>
-```
 
+<!-- BOTTOM SLIDE PANEL -->
+
+<div id="bottom-sheet">
+  <div id="pull-tab">▴ UI</div>
+
+  <div id="controls">
+    <div class="param">
+      <div class="param-header">
+        <span class="param-label">threshold</span>
+        <span class="param-val" id="threshVal">28</span>
+      </div>
+      <input type="range" id="threshold" min="5" max="80" step="1" value="28">
+    </div>
+    <div class="param">
+      <div class="param-header">
+        <span class="param-label">max block</span>
+        <span class="param-val" id="maxBlockVal">64</span>
+      </div>
+      <input type="range" id="maxBlock" min="32" max="96" step="8" value="64">
+    </div>
+    <div class="param" style="grid-column: span 2">
+      <div class="param-header">
+        <span class="param-label">min block</span>
+        <span class="param-val" id="minBlockVal">8</span>
+      </div>
+      <input type="range" id="minBlock" min="4" max="32" step="2" value="8">
+    </div>
+  </div>
+
+  <div id="btn-row">
+    <button class="btn green" id="bootBtn">BOOT</button>
+    <button class="btn" id="flipCamBtn">FLIP</button>
+    <button class="btn lit" id="colorBtn">COLOR ▪</button>
+    <button class="btn red" id="saveBtn">SAVE</button>
   </div>
 </div>
 
@@ -309,32 +314,44 @@ user-select: none;
     return GLYPH_RAMP[idx];
   }
 
-  const outputCanvas = document.getElementById('outputCanvas');
-  const outCtx = outputCanvas.getContext('2d');
-  const videoCanvas = document.getElementById('videoCanvas');
-  const videoCtx = videoCanvas.getContext('2d');
+  // ── DOM refs ──
+  const outputCanvas  = document.getElementById('outputCanvas');
+  const outCtx        = outputCanvas.getContext('2d');
+  const videoCanvas   = document.getElementById('videoCanvas');
+  const videoCtx      = videoCanvas.getContext('2d');
 
   const thresholdSlider = document.getElementById('threshold');
-  const threshVal = document.getElementById('threshVal');
-  const maxBlockSlider = document.getElementById('maxBlock');
-  const maxBlockVal = document.getElementById('maxBlockVal');
-  const minBlockSlider = document.getElementById('minBlock');
-  const minBlockVal = document.getElementById('minBlockVal');
-  const colorizeCheck = document.getElementById('colorize');
-  const flipBtn = document.getElementById('flipCamBtn');
-  const fpsSpan = document.getElementById('fps');
+  const threshVal       = document.getElementById('threshVal');
+  const maxBlockSlider  = document.getElementById('maxBlock');
+  const maxBlockVal     = document.getElementById('maxBlockVal');
+  const minBlockSlider  = document.getElementById('minBlock');
+  const minBlockVal     = document.getElementById('minBlockVal');
+  const fpsSpan         = document.getElementById('fps');
 
-  let videoStream = null;
-  let facingMode = 'environment';
-  let videoElement = null;
+  const startScreen = document.getElementById('start-screen');
+  const startBtn    = document.getElementById('start-btn');
+  const bottomSheet = document.getElementById('bottom-sheet');
+  const pullTab     = document.getElementById('pull-tab');
+  const bootBtn     = document.getElementById('bootBtn');
+  const flipBtn     = document.getElementById('flipCamBtn');
+  const colorBtn    = document.getElementById('colorBtn');
+  const saveBtn     = document.getElementById('saveBtn');
+
+  // ── state ──
+  let videoStream   = null;
+  let facingMode    = 'environment';
+  let videoElement  = null;
   let lastTimestamp = 0;
-  let frameCount = 0;
+  let frameCount    = 0;
+  let cameraReady   = false;
+  let animStarted   = false;
 
-  let threshold = 28;
+  let threshold    = 28;
   let maxBlockSize = 64;
   let minBlockSize = 8;
-  let colorize = true;
+  let colorize     = true;
 
+  // ── quadtree helpers ──
   function getBlockStats(grayData, width, x, y, size) {
     let sum = 0, sumSq = 0;
     const pixels = size * size;
@@ -386,7 +403,7 @@ user-select: none;
         const avgCol = getBlockColor(rgbData, imgWidth, x, y, blockW);
         ctx.fillStyle = `rgb(${avgCol.r},${avgCol.g},${avgCol.b})`;
       } else {
-        ctx.fillStyle = '#f0ecd8';
+        ctx.fillStyle = '#efdfb0';
       }
       const fontSize = Math.max(8, Math.min(blockW, blockH));
       ctx.font = `${fontSize}px "IBM VGA","Courier New",monospace`;
@@ -408,15 +425,14 @@ user-select: none;
     const vh = videoElement.videoHeight;
     if (!vw || !vh) return;
 
-    // original sizing logic — cap at 1000px wide, preserve aspect
     let targetW = Math.min(1000, vw);
     let targetH = (targetW * vh) / vw;
     targetW = Math.floor(targetW / 2) * 2;
     targetH = Math.floor(targetH / 2) * 2;
 
-    videoCanvas.width = targetW;
+    videoCanvas.width  = targetW;
     videoCanvas.height = targetH;
-    outputCanvas.width = targetW;
+    outputCanvas.width  = targetW;
     outputCanvas.height = targetH;
 
     videoCtx.drawImage(videoElement, 0, 0, targetW, targetH);
@@ -429,7 +445,7 @@ user-select: none;
     }
 
     outCtx.clearRect(0, 0, targetW, targetH);
-    outCtx.fillStyle = '#050505';
+    outCtx.fillStyle = '#0d0c08';
     outCtx.fillRect(0, 0, targetW, targetH);
 
     for (let y = 0; y < targetH; y += maxBlockSize) {
@@ -439,14 +455,14 @@ user-select: none;
     }
   }
 
-  let lastRender = 0;
+  let lastRender    = 0;
   const frameInterval = 33;
 
   function animationLoop(now) {
     frameCount++;
     if (now - lastTimestamp >= 1000) {
       fpsSpan.innerText = `${frameCount} fps`;
-      frameCount = 0;
+      frameCount    = 0;
       lastTimestamp = now;
     }
     if (videoElement && videoStream && now - lastRender >= frameInterval) {
@@ -461,7 +477,6 @@ user-select: none;
     if (!videoElement) {
       videoElement = document.createElement('video');
       videoElement.autoplay = true;
-      videoElement.playsInline = true;
       videoElement.muted = true;
       videoElement.setAttribute('playsinline', '');
     }
@@ -472,6 +487,7 @@ user-select: none;
       videoStream = stream;
       videoElement.srcObject = stream;
       await videoElement.play();
+      cameraReady = true;
     } catch {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -480,14 +496,27 @@ user-select: none;
         videoStream = stream;
         videoElement.srcObject = stream;
         await videoElement.play();
+        cameraReady = true;
       } catch (e) {
         console.error('Camera error', e);
-        alert('Camera access failed. Please allow camera permissions.');
+        const p = startScreen.querySelector('p');
+        if (p) p.innerHTML = `⚠ CAMERA ERROR<br>${(e.message||'').substring(0,60)}`;
+        startScreen.style.display = 'flex';
       }
     }
   }
 
-  // UI bindings
+  function launchCamera() {
+    startScreen.style.display = 'none';
+    initCamera().then(() => {
+      if (!animStarted) {
+        animStarted = true;
+        requestAnimationFrame(animationLoop);
+      }
+    });
+  }
+
+  // ── slider bindings ──
   thresholdSlider.addEventListener('input', () => {
     threshold = parseInt(thresholdSlider.value, 10);
     threshVal.innerText = threshold;
@@ -506,13 +535,34 @@ user-select: none;
     minBlockSlider.value = minBlockSize;
     minBlockVal.innerText = minBlockSize;
   });
-  colorizeCheck.addEventListener('change', () => { colorize = colorizeCheck.checked; });
+
+  // ── button bindings ──
+  startBtn.addEventListener('click', launchCamera);
+  bootBtn.addEventListener('click', launchCamera);
+
   flipBtn.addEventListener('click', () => {
     facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    initCamera();
+    if (cameraReady) initCamera();
   });
 
-  initCamera().then(() => requestAnimationFrame(animationLoop));
+  colorBtn.addEventListener('click', () => {
+    colorize = !colorize;
+    colorBtn.classList.toggle('lit', colorize);
+    colorBtn.textContent = colorize ? 'COLOR ▪' : 'COLOR';
+  });
+
+  saveBtn.addEventListener('click', () => {
+    if (!outputCanvas.width) return;
+    const link = document.createElement('a');
+    link.download = `glyph_${Date.now()}.png`;
+    link.href = outputCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  pullTab.addEventListener('click', () => {
+    bottomSheet.classList.toggle('open');
+    pullTab.textContent = bottomSheet.classList.contains('open') ? '▾ UI' : '▴ UI';
+  });
 })();
 </script>
 
